@@ -1,10 +1,14 @@
 import os
-from telegram import ReplyKeyboardMarkup, Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
+from flask import Flask, request
+from telegram import Bot, Update
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+bot = Bot(token=TOKEN)
 
-AGE, GENDER, SYMPTOMS, DURATION, SEVERITY, SURVEY = range(6)
+app = Flask(__name__)
+
+AGE, GENDER, SYMPTOMS, DURATION, SEVERITY = range(5)
 
 rule_based_db = {
     "سردرد": "ممکن است ناشی از خستگی یا کم‌آبی باشد. استراحت کنید و مایعات کافی بنوشید.",
@@ -13,7 +17,7 @@ rule_based_db = {
 }
 
 def start(update: Update, context: CallbackContext):
-    update.message.reply_text("سلام! به نویدمد خوش آمدید 😊\nبرای شروع، چند سؤال ساده می‌پرسم. سن شما چند سال است؟")
+    update.message.reply_text("سلام! به نویدمد خوش آمدید 😊\nسن شما چند سال است؟")
     return AGE
 
 def age(update: Update, context: CallbackContext):
@@ -41,26 +45,25 @@ def severity(update: Update, context: CallbackContext):
     response = "🤖 تحلیل اولیه:\n"
     for symptom, advice in rule_based_db.items():
         if symptom in context.user_data["symptoms"]:
-            response += f"✅ {advice}\n💊 پیشنهاد: استامینوفن ۵۰۰ میلی‌گرم (در صورت نداشتن مشکل کبدی).\n"
+            response += f"✅ {advice}\n💊 پیشنهاد دارو: استامینوفن ۵۰۰ میلی‌گرم.\n"
             break
     else:
-        response += "علائم شما نیاز به بررسی بیشتری دارد. در صورت تداوم، با پزشک مشورت کنید.\n"
+        response += "علائم شما نیاز به بررسی بیشتری دارد."
     update.message.reply_text(response)
-    update.message.reply_text("آیا پاسخ‌ها برایتان مفید بود؟ (بله/خیر)")
-    return SURVEY
-
-def survey(update: Update, context: CallbackContext):
-    update.message.reply_text("ممنون از پاسخ شما! برای شروع دوباره /start را بزنید.")
     return ConversationHandler.END
 
 def cancel(update: Update, context: CallbackContext):
-    update.message.reply_text("لغو شد. برای شروع دوباره /start را بزنید.")
+    update.message.reply_text("لغو شد.")
     return ConversationHandler.END
 
-def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return "OK"
 
+if __name__ == "__main__":
+    dispatcher = Dispatcher(bot, None, workers=0)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -68,15 +71,11 @@ def main():
             GENDER: [MessageHandler(Filters.text & ~Filters.command, gender)],
             SYMPTOMS: [MessageHandler(Filters.text & ~Filters.command, symptoms)],
             DURATION: [MessageHandler(Filters.text & ~Filters.command, duration)],
-            SEVERITY: [MessageHandler(Filters.text & ~Filters.command, severity)],
-            SURVEY: [MessageHandler(Filters.text & ~Filters.command, survey)]
+            SEVERITY: [MessageHandler(Filters.text & ~Filters.command, severity)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
+    dispatcher.add_handler(conv_handler)
 
-    dp.add_handler(conv_handler)
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == "__main__":
-    main()
+    PORT = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=PORT)
