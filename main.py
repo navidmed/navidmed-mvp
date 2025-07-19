@@ -1,14 +1,10 @@
 import os
-from flask import Flask, request
-from telegram import Bot, Update
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-bot = Bot(token=TOKEN)
 
-app = Flask(__name__)
-
-AGE, GENDER, SYMPTOMS, DURATION, SEVERITY = range(5)
+AGE, GENDER, SYMPTOMS, DURATION, SEVERITY, SURVEY = range(6)
 
 rule_based_db = {
     "سردرد": "ممکن است ناشی از خستگی یا کم‌آبی باشد. استراحت کنید و مایعات کافی بنوشید.",
@@ -56,14 +52,10 @@ def cancel(update: Update, context: CallbackContext):
     update.message.reply_text("لغو شد.")
     return ConversationHandler.END
 
-@app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
-    return "OK"
+def run_bot():
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
 
-if __name__ == "__main__":
-    dispatcher = Dispatcher(bot, None, workers=0)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -71,11 +63,14 @@ if __name__ == "__main__":
             GENDER: [MessageHandler(Filters.text & ~Filters.command, gender)],
             SYMPTOMS: [MessageHandler(Filters.text & ~Filters.command, symptoms)],
             DURATION: [MessageHandler(Filters.text & ~Filters.command, duration)],
-            SEVERITY: [MessageHandler(Filters.text & ~Filters.command, severity)]
+            SEVERITY: [MessageHandler(Filters.text & ~Filters.command, severity)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
-    dispatcher.add_handler(conv_handler)
 
-    PORT = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=PORT)
+    dp.add_handler(conv_handler)
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    run_bot()
