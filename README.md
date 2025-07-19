@@ -1,12 +1,9 @@
-# NavidMed Full MVP
-این نسخه کامل MVP نویدمد است با مکالمه چندمرحله‌ای، پاسخ هوشمند، پیشنهاد دارو و نظر‌سنجی.
+# NavidMed Bot
+یک ربات تلگرام برای مشاوره پزشکی اولیه با استفاده از Rule-Based.
 
-## مراحل Deploy در Render:
-- Build Command:
+## اجرای محلی:
+```
 pip install -r requirements.txt
-
-- Start Command:
+export TELEGRAM_BOT_TOKEN="توکن خود را اینجا قرار دهید"
 python main.py
-
-- Environment Variable:
-TELEGRAM_BOT_TOKEN = (توکن ربات شما)
+```
